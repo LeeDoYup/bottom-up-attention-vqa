@@ -118,7 +118,7 @@ class VQAFeatureDataset(Dataset):
         with h5py.File(h5_path, 'r') as hf:
             self.features = np.array(hf.get('image_features'))
             self.spatials = np.array(hf.get('spatial_features'))
-
+            self.feature_shape = np.shape(self.features)
         self.entries = _load_dataset(dataroot, name, self.img_id2idx)
 
         self.tokenize()
@@ -132,6 +132,7 @@ class VQAFeatureDataset(Dataset):
         This will add q_token in each entry of the dataset.
         -1 represent nil, and should be treated as padding_idx in embedding
         """
+        self.max_length=max_length
         for entry in self.entries:
             tokens = self.dictionary.tokenize(entry['question'], False)
             tokens = tokens[:max_length]
@@ -179,3 +180,33 @@ class VQAFeatureDataset(Dataset):
 
     def __len__(self):
         return len(self.entries)
+
+
+class OOD_image(VQAFeatureDataset):
+    def __init__(self, name, dictionary, dataroot='../../bottom-up-attention-vqa-tf/data'):
+        super(OOD_image, self).__init__(name, dictionary, dataroot)
+        self.features = np.random.uniform(0,1,np.shape(self.features))
+
+class OOD_question(VQAFeatureDataset):
+    def tokenize(self, max_length=14):
+        super(OOD_question, self).tokenize(max_length)
+        for entry in self.entries:
+            q_len = np.random.randint(max_length-1)
+            tokens = np.random.randint(19901, size=q_len)
+            pad = -1 * np.ones(max_length-q_len)
+            tokens = list(pad)+list(tokens)
+            entry['q_token'] = tokens
+
+class OOD_image_question(VQAFeatureDataset):
+    def __init__(self, name, dictionary, dataroot='../../bottom-up-attention-vqa-tf/data'):
+        super(OOD_image_question, self).__init__(name, dictionary, dataroot)
+        self.features = np.random.uniform(0,1,np.shape(self.features))
+
+    def tokenize(self, max_length=14):
+        super(OOD_question, self).tokenize(max_length)
+        for entry in self.entries:
+            q_len = np.random.randint(max_length-1)
+            tokens = np.random.randint(19901, size=q_len)
+            pad = -1 * np.ones(max_length-q_len)
+            tokens = list(pad) + list(tokens)
+            entry['q_token'] = tokens
