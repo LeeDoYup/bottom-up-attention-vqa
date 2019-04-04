@@ -6,6 +6,7 @@ import numpy as np
 import utils
 import h5py
 import torch
+import random
 from torch.utils.data import Dataset
 
 
@@ -184,29 +185,52 @@ class VQAFeatureDataset(Dataset):
 
 class OOD_image(VQAFeatureDataset):
     def __init__(self, name, dictionary, dataroot='../../bottom-up-attention-vqa-tf/data'):
-        super(OOD_image, self).__init__(name, dictionary, dataroot)
-        self.features = np.random.uniform(0,1,np.shape(self.features))
+        super(VQAFeatureDataset, self).__init__()
+        assert name in ['train', 'val']
+
+        ans2label_path = os.path.join(dataroot, 'cache', 'trainval_ans2label.pkl')
+        label2ans_path = os.path.join(dataroot, 'cache', 'trainval_label2ans.pkl')
+        self.ans2label = pickle.load(open(ans2label_path, 'rb'))
+        self.label2ans = pickle.load(open(label2ans_path, 'rb'))
+        self.num_ans_candidates = len(self.ans2label)
+
+        self.dictionary = dictionary
+
+        self.img_id2idx = pickle.load(
+            open(os.path.join(dataroot, '%s36_imgid2idx.pkl' % name),'rb'))
+        print('loading features from h5 file')
+        h5_path = os.path.join(dataroot, '%s36.hdf5' % name)
+        with h5py.File(h5_path, 'r') as hf:
+            self.features = np.array(hf.get('image_features'))
+            self.spatials = np.array(hf.get('spatial_features'))
+            self.feature_shape = np.shape(self.features)
+        
+        self.features = np.array(np.random.uniform(0,1,np.shape(self.features)), dtype=self.features.dtype)
+        self.entries = _load_dataset(dataroot, name, self.img_id2idx)
+
+        self.tokenize()
+        self.tensorize()
+        self.v_dim = self.features.size(2)
+        self.s_dim = self.spatials.size(2)
+
+
 
 class OOD_question(VQAFeatureDataset):
     def tokenize(self, max_length=14):
         super(OOD_question, self).tokenize(max_length)
         for entry in self.entries:
             q_len = np.random.randint(max_length-1)
-            tokens = np.random.randint(19901, size=q_len)
-            pad = -1 * np.ones(max_length-q_len)
-            tokens = list(pad)+list(tokens)
+            tokens = [random.randint(0, 19900) for i in range(q_len)]
+            pad = [19901] * (max_length-q_len)
+            tokens = pad + tokens
             entry['q_token'] = tokens
 
-class OOD_image_question(VQAFeatureDataset):
-    def __init__(self, name, dictionary, dataroot='../../bottom-up-attention-vqa-tf/data'):
-        super(OOD_image_question, self).__init__(name, dictionary, dataroot)
-        self.features = np.random.uniform(0,1,np.shape(self.features))
-
+class OOD_image_question(OOD_image):
     def tokenize(self, max_length=14):
-        super(OOD_question, self).tokenize(max_length)
+        super(OOD_image_question, self).tokenize(max_length)
         for entry in self.entries:
             q_len = np.random.randint(max_length-1)
-            tokens = np.random.randint(19901, size=q_len)
-            pad = -1 * np.ones(max_length-q_len)
-            tokens = list(pad) + list(tokens)
+            tokens = [random.randint(0, 19900) for i in range(q_len)]
+            pad = [19901] * (max_length-q_len)
+            tokens = pad + tokens
             entry['q_token'] = tokens

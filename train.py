@@ -39,7 +39,7 @@ def train(model, train_loader, eval_loader, num_epochs, output):
             q = Variable(q).cuda()
             a = Variable(a).cuda()
 
-            pred = model(v, b, q, a)
+            pred,_ = model(v, b, q, a)
             loss = instance_bce_with_logits(pred, a)
             loss.backward()
             nn.utils.clip_grad_norm(model.parameters(), 0.25)
